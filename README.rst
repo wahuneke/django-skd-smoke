@@ -40,6 +40,13 @@ django project.
 
 Configuration
 -------------
+
+Sub-class **SmokeTestCase** and configure your test using the *TESTS_CONFIGURATION*.  Further configure by defining
+optional *default_* attributes (or class methods).
+
+Basic Configuration
+********
+
 ``TESTS_CONFIGURATION`` of your ``TestCase`` should contain tuple/list of
 tuples for every request with the next structure:
 
@@ -96,6 +103,58 @@ you can use it to transfer state between them. But take into account that
 #. ``url_kwargs``
 #. ``user_credentials``
 #. ``request_data``
+
+Extra Configuration
+********
+
+For convenience, default values can be provided for some url configuration items.  If a URL test is defined which is
+missing a definition for one of these values, the class definition is searched for a default value and that is used, if
+present.
+
+For example, you may define *user_credentials* in a URL test. In cases where several URL tests have the same user
+credentials, it is more convenient to define the credentials one time, as a class attribute (or method). So in the case
+of user credentials, you can also define a class attribute like this, which will take effect for all test urls which
+dont have user_credentials defined. Like this:
+
+.. code-block:: python
+
+    class TestDemo(SmokeTestCase):
+        TESTS_CONFIGURATION = (
+            ('page1', 200, 'GET',),
+            ('page2', 200, 'GET',),
+            ('page3', 200, 'GET',),
+            ('page4', 200, 'GET', {
+                'user_credentials': {
+                    'username': 'other_user',
+                    'password': 'other_password',
+                }
+            }),
+            ('page5', 200, 'GET', {
+                'user_credentials': None,
+            }),
+        )
+
+        default_user_credentials = {
+            'username': 'my_user',
+            'password': 'my_password',
+        }
+
+
+In the example above, tests for page1, page2, and page3 will be run using the default credentials (*my_user*). The test
+for page4 will run with special credentials (*other_user*).  The test for page5 will run with no credentials, no logged
+in user.
+
+**Note:** these default values can be either class attributes *or* class methods (taking a ``self`` parameter).
+
+The full list of possible, default, attributes is:
+
+* default_comment
+* default_initialize
+* default_url_args
+* default_url_kwargs
+* default_request_data
+* default_user_credentials
+* default_redirect_to
 
 
 Examples

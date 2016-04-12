@@ -331,13 +331,17 @@ class GenerateTestMethodsMeta(type):
             setattr(cls, fail_method_name, fail_method)
         else:
             for urlname, status, method, data in config:
-                comment = data.get('comment', None)
-                initialize = data.get('initialize', None)
-                url_args = data.get('url_args', None)
-                url_kwargs = data.get('url_kwargs', None)
-                request_data = data.get('request_data', None)
-                get_user_credentials = data.get('user_credentials', None)
-                redirect_to = data.get('redirect_to', None)
+                # For each config item, if it doesnt exist in config tuple's "data" then
+                # see if user has defined a default on the test class
+                find_conf = lambda name: data.get(name, getattr(cls, "default_" + name, None))
+
+                comment = find_conf('comment')
+                initialize = find_conf('initialize')
+                url_args = find_conf('url_args')
+                url_kwargs = find_conf('url_kwargs')
+                request_data = find_conf('request_data')
+                get_user_credentials = find_conf('user_credentials')
+                redirect_to = find_conf('redirect_to')
                 status_text = STATUS_CODE_TEXT.get(status, 'UNKNOWN')
 
                 test_method_name = prepare_test_name(urlname, method, status)
