@@ -313,11 +313,11 @@ class GenerateTestMethodsMeta(type):
         cls = super(GenerateTestMethodsMeta, mcs).__new__(
             mcs, name, bases, attrs)
 
-        # Ensure test method generation is only performed for subclasses of
-        # GenerateTestMethodsMeta (excluding GenerateTestMethodsMeta class
-        # itself).
-        parents = [b for b in bases if isinstance(b, GenerateTestMethodsMeta)]
-        if not parents:
+        # If this metaclass is instantiating something found in one of these modules
+        # then we skip generation of test cases, etc.  Without this, we will erroneously
+        # detect error case of TESTS_CONFIGURATION being None
+        skip_modules = ['skd_smoke', ]
+        if attrs.get('__module__', skip_modules[0]) in skip_modules:
             return cls
 
         # noinspection PyBroadException
