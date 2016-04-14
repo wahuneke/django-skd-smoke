@@ -3,6 +3,7 @@ from __future__ import unicode_literals, print_function
 
 import traceback
 from uuid import uuid4
+from django import VERSION
 from six import string_types
 
 from django.core.exceptions import ImproperlyConfigured
@@ -45,6 +46,10 @@ def list_or_callable(l):
     return isinstance(l, (list, tuple)) or callable(l)
 
 
+def string_or_callable(v):
+    return isinstance(v, string_types) or callable(v)
+
+
 def dict_or_callable(d):
     return isinstance(d, dict) or callable(d)
 
@@ -57,7 +62,7 @@ NOT_REQUIRED_PARAM_TYPE_CHECK = {
     'url_kwargs': {'type': 'dict or callable', 'func': dict_or_callable},
     'request_data': {'type': 'dict or callable', 'func': dict_or_callable},
     'user_credentials': {'type': 'dict or callable', 'func': dict_or_callable},
-    'redirect_to': {'type': 'string', 'func': check_type(string_types)},
+    'redirect_to': {'type': 'string or callable', 'func': string_or_callable},
 }
 
 INCORRECT_REQUIRED_PARAM_TYPE_MSG = \
@@ -220,6 +225,11 @@ def generate_test_method(urlname, status, method='GET', initialize=None,
         else:
             prepared_url_args = url_args or []
 
+        if callable(redirect_to):
+            redirect_url = redirect_to(self)
+        else:
+            redirect_url = redirect_to
+
         if callable(url_kwargs):
             prepared_url_kwargs = url_kwargs(self)
         else:
@@ -243,9 +253,9 @@ def generate_test_method(urlname, status, method='GET', initialize=None,
             prepared_data = request_data or {}
         response = function(resolved_url, data=prepared_data)
         self.assertEqual(response.status_code, status)
-        if status in (301, 302, 303, 307) and redirect_to:
-            self.assertRedirects(response, redirect_to,
-                                 fetch_redirect_response=False)
+        if status in (301, 302, 303, 307) and redirect_url:
+            extra_args = {"fetch_redirect_response": False} if VERSION >= (1, 7) else {}
+            self.assertRedirects(response, redirect_url, **extra_args)
     return new_test_method
 
 
