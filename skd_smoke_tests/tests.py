@@ -457,6 +457,52 @@ class SmokeTestCaseTestCase(TestCase):
 
     @patch('skd_smoke.uuid4')
     @patch('skd_smoke.resolve_url')
+    def test_generated_test_method_with_redirect_as_callable(
+            self, mock_django_resolve_url, mock_uuid4):
+
+        redirect_url = '/redirect_url'
+        redirect_call = Mock(return_value=redirect_url)
+
+        conf = (
+            ('urlname', 302, 'GET', {'redirect_to': redirect_call}),
+        )
+
+        expected_test_method_names = [
+            'test_smoke_urlname_get_302_ffffffff',
+        ]
+
+        expected_docs = self.generate_docs_from_configuration(conf)
+
+        mock_django_resolve_url.return_value = url = '/url/'
+        mock_uuid4.return_value = Mock(hex='ffffffff')
+
+        CorrectConfig = type(
+            str('CorrectConfig'),
+            (SmokeTestCase,),
+            {'TESTS_CONFIGURATION': conf})
+
+        if self.check_if_class_contains_fail_test_method(CorrectConfig):
+            mock = self.call_cls_method_by_name(CorrectConfig,
+                                                'FAIL_METHOD_NAME')
+            self.fail(
+                'Generated TestCase contains fail test method but should not '
+                'cause its configuration is correct. Error stacktrace:\n%s' %
+                mock.fail.call_args_list[0][0][0]
+            )
+
+        self.assertTrue(
+            self.check_if_class_contains_test_methods(CorrectConfig),
+            'TestCase should contain at least one generated test method.'
+        )
+
+        self.assert_generated_test_method(
+            CorrectConfig, expected_test_method_names[0], conf[0],
+            expected_docs[0], url, redirect_to=redirect_url)
+
+        self.assertEqual(redirect_call.call_count, 1)
+
+    @patch('skd_smoke.uuid4')
+    @patch('skd_smoke.resolve_url')
     def test_generated_test_method_with_initialize_callable(
             self, mock_django_resolve_url, mock_uuid4):
 
