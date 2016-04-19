@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, print_function
 import types
 from unittest import TestCase
+from django import VERSION
 
 from mock import Mock, patch
 from django.core.exceptions import ImproperlyConfigured
@@ -236,9 +237,14 @@ class SmokeTestCaseTestCase(TestCase):
             login_mock.assert_called_once_with(**user_credentials)
 
         if redirect_to:
-            testcase_mock.assertRedirects.assert_called_once_with(
-                response, redirect_to, fetch_redirect_response=False
-            )
+            if VERSION >= (1, 7):
+                testcase_mock.assertRedirects.assert_called_once_with(
+                    response, redirect_to, fetch_redirect_response=False
+                )
+            else:
+                testcase_mock.assertRedirects.assert_called_once_with(
+                    response, redirect_to
+                )
         else:
             testcase_mock.assertRedirects.assert_not_called()
 

@@ -211,7 +211,7 @@ def generate_test_method(urlname, status, method='GET', initialize=None,
         into http method request
     :param user_credentials: dict or callable object which returns dict to \
         login user using ``TestCase.client.login``
-    :param redirect_to: plain url which is checked if only expected status \
+    :param redirect_to: plain url or callable which is checked if only expected status \
         code is one of the [301, 302, 303, 307]
     :return: new test method
 
@@ -326,8 +326,10 @@ class GenerateTestMethodsMeta(type):
         # If this metaclass is instantiating something found in one of these modules
         # then we skip generation of test cases, etc.  Without this, we will erroneously
         # detect error case of TESTS_CONFIGURATION being None
+        # Also, skip certain classes based on class name
         skip_modules = ['skd_smoke', ]
-        if attrs.get('__module__', skip_modules[0]) in skip_modules:
+        skip_names = ['NewBase', 'SmokeTestCase', ]
+        if attrs.get('__module__') in skip_modules or name in skip_names:
             return cls
 
         # noinspection PyBroadException
