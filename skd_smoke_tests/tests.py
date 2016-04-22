@@ -941,3 +941,57 @@ class SmokeTestCaseTestCase(TestCase):
         for i, name in enumerate(expected_test_method_names):
             self.assert_generated_test_method(CorrectConfig, name, conf[i],
                                               expected_docs[i], url)
+
+    @patch('skd_smoke.uuid4')
+    @patch('skd_smoke.resolve_url')
+    def test_generated_test_method_with_request_data_as_default(
+            self, mock_django_resolve_url, mock_uuid4):
+
+        request_data = {'message': 'new comment'}
+
+        def get_request_data(testcase):
+            return request_data
+
+        explicit_no_request_data = { 'request_data': None }
+        conf = (
+            ('/some_url/', 200, 'GET', explicit_no_request_data),
+            ('/comments/', 201, 'POST',
+             {'request_data': get_request_data}),
+            ('namespace:url', 200, 'GET', explicit_no_request_data),
+            ('some_url2', 200, 'GET', explicit_no_request_data),
+        )
+
+        expected_test_method_names = [
+            'test_smoke_some_url_get_200_ffffffff',
+            'test_smoke_comments_post_201_ffffffff',
+            'test_smoke_namespace_url_get_200_ffffffff',
+            'test_smoke_some_url2_get_200_ffffffff',
+        ]
+
+        expected_docs = self.generate_docs_from_configuration(conf)
+
+        mock_django_resolve_url.return_value = url = '/url/'
+        mock_uuid4.return_value = Mock(hex='ffffffff')
+
+        CorrectConfig = type(
+            str('CorrectConfig'),
+            (SmokeTestCase,),
+            {'TESTS_CONFIGURATION': conf, 'default_request_data': lambda x: 'bla'})
+
+        if self.check_if_class_contains_fail_test_method(CorrectConfig):
+            mock = self.call_cls_method_by_name(CorrectConfig,
+                                                'FAIL_METHOD_NAME')
+            self.fail(
+                'Generated TestCase contains fail test method but should not '
+                'cause its configuration is correct. Error stacktrace:\n%s' %
+                mock.fail.call_args_list[0][0][0]
+            )
+
+        self.assertTrue(
+            self.check_if_class_contains_test_methods(CorrectConfig),
+            'TestCase should contain at least one generated test method.'
+        )
+
+        for i, name in enumerate(expected_test_method_names):
+            self.assert_generated_test_method(CorrectConfig, name, conf[i],
+                                              expected_docs[i], url)

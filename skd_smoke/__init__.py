@@ -65,6 +65,12 @@ NOT_REQUIRED_PARAM_TYPE_CHECK = {
     'redirect_to': {'type': 'string or callable', 'func': string_or_callable},
 }
 
+
+DEFAULTABLE_PARAMS = (
+    'comment', 'initialize', 'url_args', 'url_kwargs', 'request_data', 'user_credentials', 'redirect_to',
+)
+
+
 INCORRECT_REQUIRED_PARAM_TYPE_MSG = \
     'django-skd-smoke: Configuration parameter "%s" with index=%s should be ' \
     '%s but is %s with next value: %s.'
@@ -94,17 +100,21 @@ def append_doc_link(error_message):
     return error_message + '\n' + LINK_TO_DOCUMENTATION
 
 
-def prepare_configuration(tests_configuration):
+def prepare_configuration(tests_configuration, defaults=None):
     """
     Prepares initial tests configuration. Raises exception if there is any
     problem with it.
 
     :param tests_configuration: initial tests configuration as tuple or list \
         with predefined structure
+    :param defaults: pass in a dict of defined default functions attached to \
+        the class. key should be full function name and value should be \
+        attribute value (either a callable or a plain value)
     :return: adjusted configuration which should be used further
     :raises: ``django.core.exceptions.ImproperlyConfigured`` if there is any \
         problem with supplied ``tests_configuration``
     """
+    defaults = defaults or {}
     confs = []
 
     if isinstance(tests_configuration, (tuple, list)):
@@ -152,6 +162,15 @@ def prepare_configuration(tests_configuration):
                 for key, value in test_config[-1].items():
                     type_info = NOT_REQUIRED_PARAM_TYPE_CHECK[key]
                     function = type_info['func']
+                    # If they passed in a None then it can be a signal to not use
+                    # the default value/callable that may have been defined in the
+                    # test class.  Permit this None only if the config item is 'defaultable'
+                    # and a default has been defined on the test class
+                    if key in DEFAULTABLE_PARAMS and value is None:
+                        default_attr_name = "default_" + key
+                        if default_attr_name in defaults:
+                            value = defaults[default_attr_name]
+
                     if not function(value):
                         type_errors.append(
                             INCORRECT_NOT_REQUIRED_PARAM_TYPE_MSG %
@@ -332,9 +351,16 @@ class GenerateTestMethodsMeta(type):
         if attrs.get('__module__') in skip_modules or name in skip_names:
             return cls
 
+        # Build a dict of all the 'defaults' they defined to go with their test class
+        defined_defaults = {}
+        for defaultable in DEFAULTABLE_PARAMS:
+            attr_name = "default_" + defaultable
+            if hasattr(cls, attr_name):
+                defined_defaults[attr_name] = getattr(cls, attr_name)
+
         # noinspection PyBroadException
         try:
-            config = prepare_configuration(cls.TESTS_CONFIGURATION)
+            config = prepare_configuration(cls.TESTS_CONFIGURATION, defined_defaults)
         except Exception:
             fail_method = generate_fail_test_method(traceback.format_exc())
             fail_method_name = cls.FAIL_METHOD_NAME
